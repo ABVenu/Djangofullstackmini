@@ -1,0 +1,375 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Document</title>
+
+    <style>
+      body {
+        font-family: Arial, sans-serif;
+        background-color: #f0f0f0;
+        margin: 0;
+        padding: 20px;
+      }
+      form {
+        background-color: #fff;
+        padding: 20px;
+        margin-bottom: 20px;
+        border-radius: 5px;
+        box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+      }
+      form input,
+      form textarea,
+      form input[type="submit"] {
+        width: 100%;
+        padding: 10px;
+        margin-bottom: 10px;
+        border: 1px solid #ccc;
+        border-radius: 4px;
+        box-sizing: border-box;
+        font-size: 16px;
+      }
+      form input[type="submit"] {
+        background-color: #4caf50;
+        color: white;
+        border: none;
+        cursor: pointer;
+      }
+      form input[type="submit"]:hover {
+        background-color: #45a049;
+      }
+      #cont {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+        grid-gap: 20px;
+      }
+      .card {
+        background-color: #fff;
+        padding: 15px;
+        border-radius: 5px;
+        box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+      }
+      .card h3 {
+        font-size: 18px;
+        margin-bottom: 10px;
+      }
+      .card textarea {
+        width: 90%;
+        min-height: 100px;
+        padding: 10px;
+        border: 1px solid #ccc;
+        border-radius: 4px;
+        resize: vertical;
+        font-size: 16px;
+      }
+      .card button,
+      button {
+        padding: 8px 12px;
+        background-color: #f44336;
+        color: white;
+        border: none;
+        cursor: pointer;
+        border-radius: 4px;
+        font-size: 14px;
+        width: fit-content;
+      }
+      .card button:hover {
+        background-color: #d32f2f;
+      }
+
+      .modal {
+        display: none;
+        position: fixed;
+        z-index: 1;
+        left: 0;
+        top: 0;
+        width: 100%;
+        height: 100%;
+        overflow: auto;
+        background-color: rgba(0, 0, 0, 0.4);
+      }
+      .modal-content {
+        background-color: #fefefe;
+        margin: 10% auto;
+        padding: 20px;
+        border: 1px solid #888;
+        width: 80%;
+        border-radius: 5px;
+      }
+      .close {
+        color: #aaa;
+        float: right;
+        font-size: 28px;
+        font-weight: bold;
+      }
+      .close:hover,
+      .close:focus {
+        color: black;
+        text-decoration: none;
+        cursor: pointer;
+      }
+      .modal-input {
+        width: 100%;
+        padding: 10px;
+        margin-bottom: 10px;
+        border: 1px solid #ccc;
+        border-radius: 4px;
+        box-sizing: border-box;
+        font-size: 16px;
+      }
+      .modal-btn-container {
+        text-align: right;
+      }
+    </style>
+  </head>
+  <body>
+    <button style="margin-bottom: 10px" onClick="logoutfn()">Logout</button>
+
+    <form id="form" action="" onSubmit="postfn()">
+      <h3>Add the posts here</h3>
+      <input id="name" type="text" placeholder="Title of the Post" />
+      <textarea
+        id="content"
+        type="textarea"
+        placeholder="Content of the Post"
+      ></textarea>
+      <input type="submit" value="Add Post" />
+    </form>
+    <div id="cont"></div>
+    <div id="editModal" class="modal">
+      <div class="modal-content">
+        <span class="close" onclick="closeModal()">&times;</span>
+        <h2>Edit Post</h2>
+        <p style="display: none" id="editId"></p>
+        <input
+          id="editTitle"
+          class="modal-input"
+          type="text"
+          placeholder="Title"
+        />
+        <textarea
+          id="editContent"
+          class="modal-input"
+          placeholder="Content"
+        ></textarea>
+        <div class="modal-btn-container">
+          <button onclick="updatePost()">Save Changes</button>
+        </div>
+      </div>
+    </div>
+  </body>
+  <script>
+    function getCookie(name) {
+      let cookieValue = null;
+      if (document.cookie && document.cookie !== "") {
+        const cookies = document.cookie.split(";");
+        for (let i = 0; i < cookies.length; i++) {
+          const cookie = cookies[i].trim();
+          if (cookie.substring(0, name.length + 1) === name + "=") {
+            cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+            break;
+          }
+        }
+      }
+      return cookieValue;
+    }
+    let csrftoken = getCookie("csrftoken");
+    console.log("csrf", csrftoken);
+    let jwt = localStorage.getItem("jwt"); // Retrieve the JWT directly as a string
+    console.log("jwt", jwt);
+    let baseurl = `http://127.0.0.1:8000/blogs`;
+
+    function postfn() {
+      event.preventDefault();
+      let form = document.getElementById("form");
+      let title = form.name.value;
+      let content = form.content.value;
+
+      fetch(`${baseurl}/posts/`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "X-CSRFToken": csrftoken, // Include the CSRF token in the request headers
+          Authorization: `Bearer ${jwt}`, // Include JWT token in Authorization header
+        },
+        body: JSON.stringify({ title, content }),
+        credentials: "include", // Include cookies (JWT token) in the request
+      })
+        .then((res) => res.json())
+        .then((data) => {
+          console.log("data", data);
+          alert(data.message);
+          getPosts();
+        })
+        .catch((err) => {
+          console.log(err);
+          alert("An error occurred: " + err.message);
+        });
+    }
+
+    function getPosts() {
+      fetch(`${baseurl}/posts/all/`, {
+        method: "GET",
+        headers: {
+          "Content-Type": "application/json",
+          "X-CSRFToken": csrftoken, // Include the CSRF token in the request headers
+          Authorization: `Bearer ${jwt}`, // Include JWT token in Authorization header
+        },
+        // credentials: 'include' // Include cookies (JWT token) in the request
+      })
+        .then((data) => {
+          console.log("from get all posts", data);
+          // alert(data.message);
+          return data.json();
+        })
+        .then((res) => {
+          console.log(res.data);
+          res.data == undefined ? "" : displayData(res.data);
+        })
+        .catch((err) => {
+          console.log("from get all posts error");
+          console.log(err);
+          // alert("An error occurred: " + err.message);
+        });
+    }
+
+    getPosts();
+
+    function displayData(data) {
+      let cont = document.getElementById("cont");
+      cont.innerHTML = "";
+      data.forEach((ele, i) => {
+        let card = document.createElement("div");
+        card.setAttribute("class", "card");
+        let t = document.createElement("h3");
+        t.textContent = `t: ${ele.id}`;
+        let title = document.createElement("h3");
+        title.textContent = `title: ${ele.title}`;
+        let content = document.createElement("textarea");
+        content.readOnly = true;
+        content.textContent = ele.content;
+
+        let delBtn = document.createElement("button");
+        delBtn.textContent = "Delete";
+        delBtn.addEventListener("click", function () {
+          delfn(ele, i);
+        });
+
+        let editBtn = document.createElement("button");
+        editBtn.textContent = "Edit";
+        editBtn.addEventListener("click", function () {
+          openModal(ele, i);
+        });
+
+        card.append(t, title, content, editBtn, delBtn);
+        cont.append(card);
+      });
+    }
+
+    function delfn(ele, i) {
+      fetch(`${baseurl}/posts/${ele.id}/`, {
+        method: "DELETE",
+        headers: {
+          "X-CSRFToken": csrftoken,
+          Authorization: `Bearer ${jwt}`,
+        },
+      })
+        .then((res) => {
+          if (!res.ok) {
+            throw new Error(`HTTP error! Status: ${res.status}`);
+          }
+          // Check if response content type is JSON before parsing
+          const contentType = res.headers.get("content-type");
+          if (contentType && contentType.includes("application/json")) {
+            return res.json(); // Parse JSON response
+          } else {
+            return {}; // Return empty object if no JSON content
+          }
+        })
+        .then((data) => {
+          console.log("Deleted successfully:", data);
+          alert("Post Deleted");
+          getPosts();
+          // Remove the deleted post from UI or refresh the list
+        })
+        .catch((error) => {
+          console.error("Error deleting the post:", error);
+        });
+    }
+
+    function openModal(post) {
+      // Populate modal fields with post data
+      document.getElementById("editId").textContent = post.id;
+      document.getElementById("editTitle").value = post.title;
+      document.getElementById("editContent").value = post.content;
+
+      // Display the modal
+      document.getElementById("editModal").style.display = "block";
+    }
+
+    function closeModal() {
+      // Clear modal fields
+      document.getElementById("editTitle").value = "";
+      document.getElementById("editContent").value = "";
+
+      // Hide the modal
+      document.getElementById("editModal").style.display = "none";
+    }
+
+    function updatePost() {
+      let title = document.getElementById("editTitle").value;
+      let content = document.getElementById("editContent").value;
+      let postId = document.getElementById("editId").textContent;
+      // console.log(postId)
+      fetch(`${baseurl}/posts/${postId}/`, {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+          "X-CSRFToken": csrftoken,
+          Authorization: `Bearer ${jwt}`,
+        },
+        body: JSON.stringify({ title, content }),
+      })
+        .then((res) => {
+          if (!res.ok) {
+            throw new Error(`HTTP error! Status: ${res.status}`);
+          }
+          return res.json();
+        })
+        .then((data) => {
+          console.log("Post updated successfully:", data);
+          alert("Post updated successfully");
+          closeModal(); // Close the modal after successful update
+          getPosts(); // Refresh the list of posts
+        })
+        .catch((error) => {
+          console.error("Error updating post:", error);
+          alert("An error occurred while updating the post");
+        });
+    }
+
+    function logoutfn() {
+      fetch(`${baseurl}/logout/`, {
+        method: "POST",
+        headers: {
+          "X-CSRFToken": csrftoken,
+          Authorization: `Bearer ${jwt}`,
+        },
+      })
+        .then((res) => res.json())
+        .then((data) => {
+          console.log(data);
+          localStorage.removeItem("jwt");
+          alert(data.message);
+          window.location.href = "login.html";
+        })
+        .catch((err) => {
+          console.log(err);
+        });
+    }
+  </script>
+</html>
